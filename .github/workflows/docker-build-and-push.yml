@@ -7,7 +7,7 @@ on:
     branches: [ "main" ]
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/<YOUR_IMAGE_REPO> # <-- замените
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/devops-engineer-from-scratch-project-315
   JAVA_VERSION: "21"
   NODE_VERSION: "20"
 
@@ -39,7 +39,7 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Run frontend build (optional)
         working-directory: frontend

@@ -1,3 +1,13 @@
+# ---------- frontend build stage ----------
+FROM node:20-alpine AS frontend-build
+WORKDIR /app/frontend
+
+COPY frontend/package*.json ./
+RUN npm ci --legacy-peer-deps
+
+COPY frontend/ ./
+RUN npm run build
+
 # Используем официальный образ с JDK для сборки
 FROM eclipse-temurin:21-jdk-alpine AS builder
 
@@ -15,13 +25,8 @@ COPY gradle/libs.versions.toml gradle/
 # Даем права на выполнение gradlew
 RUN chmod +x gradlew
 
-# Загружаем зависимости (кэшируется если файлы не изменились)
-
-
 # Копируем исходный код
 COPY src src
-
-# Запускаем тесты
 
 # Собираем приложение
 RUN ./gradlew build -x test --no-daemon
