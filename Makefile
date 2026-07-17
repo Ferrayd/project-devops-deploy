@@ -1,45 +1,34 @@
-test:
-	./gradlew test
+IMAGE_NAME=project-devops-deploy
+DOCKER_REPO=ghcr.io/ferrayd/project-devops-deploy
 
-start: run
+# Get short git commit sha
+GIT_SHA := $(shell git rev-parse --short HEAD)
 
-run:
-	./gradlew bootRun
-
-update-gradle:
-	./gradlew wrapper --gradle-version 9.2.1
-
-update-deps:
-	./gradlew refreshVersions
-
-install:
-	./gradlew dependencies
-
-build:
-	./gradlew build
-
-lint:
-	./gradlew spotlessCheck
+.PHONY: docker-build docker-tag docker-push docker-run docker-stop docker-clean
 
 lint-fix:
 	./gradlew spotlessApply
 
 docker-build:
-	docker build -t bulletins-app .
+	docker build -t $(IMAGE_NAME) .
+
+docker-tag:
+	docker tag $(IMAGE_NAME) $(DOCKER_REPO):latest
+	docker tag $(IMAGE_NAME) $(DOCKER_REPO):$(GIT_SHA)
+
+docker-push:
+	docker push $(DOCKER_REPO):latest
+	docker push $(DOCKER_REPO):$(GIT_SHA)
+
+docker-publish: docker-build docker-tag docker-push
 
 docker-run:
-	docker run -p 8080:8080 -p 9091:9090 \
-        -e SPRING_PROFILES_ACTIVE=dev \
-        -e SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL} \
-        -e SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME} \
-        -e SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD} \
-        bulletins-app
+	docker run -p 8080:8080 -p 9090:9090 \
+		-e SPRING_PROFILES_ACTIVE=dev \
+		$(IMAGE_NAME)
 
 docker-stop:
-	docker stop $$(docker ps -q --filter ancestor=bulletins-app)
+	docker stop $$(docker ps -q --filter ancestor=$(IMAGE_NAME))
 
 docker-clean:
-	docker rmi bulletins-app
-
-
-.PHONY: build
+	docker rmi $(IMAGE_NAME)

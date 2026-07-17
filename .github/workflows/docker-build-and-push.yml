@@ -7,7 +7,7 @@ on:
     branches: [ "main" ]
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/devops-engineer-from-scratch-project-315
+  IMAGE_NAME: ghcr.io/ferrayd/devops-engineer-from-scratch-project-315
   JAVA_VERSION: "21"
   NODE_VERSION: "20"
 
