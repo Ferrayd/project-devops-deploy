@@ -1,43 +1,39 @@
-# ---------- Builder stage ----------
-FROM eclipse-temurin:21-jdk-alpine AS builder
+# --- Frontend build ---
+FROM node:20-alpine AS frontend-build
+WORKDIR /build/frontend
 
+COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
+RUN npm ci
+
+COPY frontend/ ./
+RUN npm run build
+
+# --- Backend build ---
+FROM eclipse-temurin:21-jdk AS backend-build
+WORKDIR /build
+
+COPY gradlew gradlew.bat settings.gradle.kts build.gradle.kts versions.properties ./
+COPY gradle/ gradle/
+COPY src/ src/
+
+RUN rm -rf src/main/resources/static && mkdir -p src/main/resources/static
+COPY --from=frontend-build /build/frontend/dist/ src/main/resources/static/
+
+RUN chmod +x gradlew \
+    && ./gradlew bootJar -x test --no-daemon
+
+# --- Runtime ---
+FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app
 
-COPY gradlew .
-COPY gradle gradle
-COPY build.gradle.kts .
-COPY settings.gradle.kts .
-COPY versions.properties .
-COPY gradle/libs.versions.toml gradle/
+RUN addgroup -g 1001 app && adduser -u 1001 -G app -D app
 
-# Make Gradle wrapper executable
-RUN chmod +x gradlew
+COPY --from=backend-build /build/build/libs/project-devops-deploy-*.jar app.jar
 
-# Download project dependencies
-RUN ./gradlew dependencies --no-daemon
+USER app
 
-# Copy application source code
-COPY src src
-
-# Run tests to validate build
-RUN ./gradlew test --no-daemon
-
-# Build the application jar
-RUN ./gradlew build -x test --no-daemon
-
-
-# ---------- Runtime stage ----------
-# Use lightweight JRE image for running the application
-FROM eclipse-temurin:21-jre-alpine
-
-# Set working directory
-WORKDIR /app
-
-# Copy all built jars
-COPY --from=builder /app/build/libs/ /app/
-
-# Expose application and actuator ports
 EXPOSE 8080 9090
 
-# Run the Spring Boot application
-ENTRYPOINT ["java","-jar","/app/project-devops-deploy-0.0.1-SNAPSHOT.jar"]
+ENV JAVA_OPTS=""
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]
