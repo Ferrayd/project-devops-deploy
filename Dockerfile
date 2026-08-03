@@ -1,17 +1,4 @@
-# ---------- Frontend build ----------
-FROM node:20-alpine AS frontend-builder
-
-WORKDIR /frontend
-
-COPY frontend/package*.json ./
-
-RUN npm install
-
-COPY frontend .
-
-RUN npm run build
-
-# ---------- Backend build ----------
+# ---------- Builder stage ----------
 FROM eclipse-temurin:21-jdk-alpine AS builder
 
 WORKDIR /app
@@ -21,29 +8,36 @@ COPY gradle gradle
 COPY build.gradle.kts .
 COPY settings.gradle.kts .
 COPY versions.properties .
+COPY gradle/libs.versions.toml gradle/
 
+# Make Gradle wrapper executable
 RUN chmod +x gradlew
 
-# cache dependencies
+# Download project dependencies
 RUN ./gradlew dependencies --no-daemon
 
-# copy source
+# Copy application source code
 COPY src src
 
-# copy frontend build into spring static dir
-COPY --from=frontend-builder /frontend/dist src/main/resources/static
+# Run tests to validate build
+RUN ./gradlew test --no-daemon
 
+# Build the application jar
 RUN ./gradlew build -x test --no-daemon
 
 
-
-# ---------- Runtime ----------
+# ---------- Runtime stage ----------
+# Use lightweight JRE image for running the application
 FROM eclipse-temurin:21-jre-alpine
 
+# Set working directory
 WORKDIR /app
 
-COPY --from=builder /app/build/libs/*SNAPSHOT.jar /app/app.jar
+# Copy all built jars
+COPY --from=builder /app/build/libs/ /app/
 
+# Expose application and actuator ports
 EXPOSE 8080 9090
 
-ENTRYPOINT ["java","-jar","/app/app.jar"]
+# Run the Spring Boot application
+ENTRYPOINT ["java","-jar","/app/project-devops-deploy-0.0.1-SNAPSHOT.jar"]
