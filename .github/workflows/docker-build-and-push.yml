@@ -46,8 +46,18 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Run backend tests
-        run: make test
+      - name: Run backend tests (with injected test dependencies)
+        run: |
+          cat > /tmp/init-test-deps.gradle <<'EOF'
+          allprojects {
+            plugins.withId('java') {
+              dependencies {
+                add('testImplementation', 'org.springframework.boot:spring-boot-starter-test')
+              }
+            }
+          }
+          EOF
+          ./gradlew test --no-daemon --init-script /tmp/init-test-deps.gradle
 
       - name: Set image tags
         id: tags
